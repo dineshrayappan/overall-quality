@@ -2,6 +2,7 @@
   "name": "overall-quality-qms",
   "version": "1.0.0",
   "description": "Digital Garment Quality Management System",
+  "type": "module",
   "private": true,
   "scripts": {
     "dev": "npm --prefix client run dev",
@@ -11,6 +12,20 @@
     "test": "npm --prefix server test",
     "clean:reports": "npm --prefix server run clean:reports",
     "clean:all": "npm --prefix server run clean:all"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.12.1",
+    "morgan": "^1.10.0",
+    "multer": "^2.5.0",
+    "pdfkit": "^0.16.0",
+    "zod": "^3.24.2"
   }
 }
 

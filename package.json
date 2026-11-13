@@ -8,7 +8,9 @@
     "client": "npm --prefix client run dev",
     "server": "npm --prefix server start",
     "build": "npm --prefix client run build",
-    "test": "npm --prefix server test"
+    "test": "npm --prefix server test",
+    "clean:reports": "npm --prefix server run clean:reports",
+    "clean:all": "npm --prefix server run clean:all"
   }
 }
 

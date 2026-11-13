@@ -28,17 +28,36 @@ import { useAuth } from '../../context/AuthContext.jsx';
 export default function Layout() {
   const { user, company, logout, hasPerm } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [fabLabOpen, setFabLabOpen] = useState(true);
   const [prodLineOpen, setProdLineOpen] = useState(true);
   const drawerRef = useRef(null);
   const location = useLocation();
-  const isProdLineRoute = location.pathname.startsWith('/inspections');
+
+  const fabLabPaths = [
+    '/inspections/shrinkage',
+    '/inspections/four-point',
+    '/inspections/accessories',
+    '/specifications',
+  ];
+  const isFabLabRoute = fabLabPaths.some((p) => location.pathname.startsWith(p));
+
+  const prodLinePaths = [
+    '/inspections/target-charts',
+    '/inspections/size-sets',
+    '/inspections/seven-points',
+    '/inspections/measurements',
+  ];
+  const isProdLineRoute = prodLinePaths.some((p) => location.pathname.startsWith(p));
 
   useEffect(() => {
     setDrawerOpen(false);
+    if (isFabLabRoute) {
+      setFabLabOpen(true);
+    }
     if (isProdLineRoute) {
       setProdLineOpen(true);
     }
-  }, [location.pathname, isProdLineRoute]);
+  }, [location.pathname, isFabLabRoute, isProdLineRoute]);
 
   useEffect(() => {
     const dlg = drawerRef.current;
@@ -47,25 +66,29 @@ export default function Layout() {
     else if (!drawerOpen && dlg.open) dlg.close();
   }, [drawerOpen]);
 
-  const textileQcItems = [
+  const fabLabItems = [
     hasPerm('shrinkage', 'view') && {
       to: '/inspections/shrinkage',
-      label: 'Shrinkage Test (QF-29)',
+      label: 'fabric/garment shrinkage',
+      formCode: 'QF-29',
       Icon: FlaskConical,
     },
     hasPerm('fourPoint', 'view') && {
       to: '/inspections/four-point',
-      label: 'Fabric 4-Point (QF-30)',
+      label: 'inspection report-dyed(four point)',
+      formCode: 'QF-30',
       Icon: Grid,
     },
     hasPerm('accessories', 'view') && {
       to: '/inspections/accessories',
-      label: 'Accessories (QAD-5)',
+      label: 'inspection report-accessories',
+      formCode: 'QAD-5',
       Icon: Tag,
     },
     hasPerm('specifications', 'view') && {
       to: '/specifications',
-      label: 'Quality Specifications',
+      label: 'quality specification',
+      formCode: null,
       Icon: Sliders,
     },
   ].filter(Boolean);
@@ -147,21 +170,63 @@ export default function Layout() {
         </div>
       )}
 
-      {textileQcItems.length > 0 && (
+      {fabLabItems.length > 0 && (
         <div>
-          <div className="nav-section-label">Textile &amp; QA Formats</div>
+          <div className="nav-section-label">Laboratory &amp; Store QC</div>
           <ul className="nav-list">
-            {textileQcItems.map(({ to, label, Icon }) => (
-              <li key={to}>
-                <NavLink
-                  to={to}
-                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                >
-                  <Icon size={17} aria-hidden="true" />
-                  <span>{label}</span>
-                </NavLink>
-              </li>
-            ))}
+            <li>
+              <button
+                type="button"
+                className={`nav-link nav-parent-btn ${isFabLabRoute ? 'parent-active' : ''}`}
+                aria-expanded={fabLabOpen}
+                onClick={() => setFabLabOpen((prev) => !prev)}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <FlaskConical size={17} aria-hidden="true" />
+                  <span>fab lab and qad store</span>
+                </span>
+                {fabLabOpen ? (
+                  <ChevronDown size={15} aria-hidden="true" />
+                ) : (
+                  <ChevronRight size={15} aria-hidden="true" />
+                )}
+              </button>
+
+              {fabLabOpen && (
+                <ul className="nav-tree">
+                  {fabLabItems.map(({ to, label, formCode, Icon }) => (
+                    <li key={to} className="nav-tree-item">
+                      <NavLink
+                        to={to}
+                        className={({ isActive }) =>
+                          `nav-link nav-sub-link ${isActive ? 'active' : ''}`
+                        }
+                      >
+                        <Icon size={15} aria-hidden="true" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <span style={{ flex: 1 }}>{label}</span>
+                        {formCode && (
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              padding: '0.1rem 0.35rem',
+                              borderRadius: '4px',
+                              background: 'rgba(255, 255, 255, 0.12)',
+                              color: '#cbd5e1',
+                              letterSpacing: '0.02em',
+                              flexShrink: 0,
+                              marginTop: '2px',
+                            }}
+                          >
+                            {formCode}
+                          </span>
+                        )}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
           </ul>
         </div>
       )}

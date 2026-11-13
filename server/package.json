@@ -10,7 +10,9 @@
     "server": "node src/server.js",
     "test": "node --test tests/*.test.js",
     "seed:demo": "node src/scripts/seedDemo.js",
-    "seed:reset": "node src/scripts/seedDemo.js --reset"
+    "seed:reset": "node src/scripts/seedDemo.js --reset",
+    "clean:reports": "node src/scripts/cleanSeedData.js",
+    "clean:all": "node src/scripts/cleanSeedData.js --all"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -4,27 +4,6 @@ import { env } from '../server/src/config/env.js';
 import { bootstrapSystemConfig } from '../server/src/services/bootstrapService.js';
 
 let app = null;
-let isConnected = false;
-
-async function init() {
-  if (!isConnected) {
-    const mongoUri = process.env.MONGO_URI || env.mongoUri;
-    if (mongoUri) {
-      try {
-        await connectDB(mongoUri);
-        await bootstrapSystemConfig().catch((err) => {
-          console.error('Bootstrap error:', err.message);
-        });
-        isConnected = true;
-      } catch (err) {
-        console.error('MongoDB connection error:', err.message);
-      }
-    }
-  }
-  if (!app) {
-    app = createApp();
-  }
-}
 
 export default async function handler(req, res) {
   // Normalize req.url so Express router always matches /api/... routes
@@ -36,7 +15,23 @@ export default async function handler(req, res) {
     req.url = '/api' + (url.startsWith('/') ? url : '/' + url);
   }
 
-  await init();
+  const mongoUri = process.env.MONGO_URI || env.mongoUri;
+  try {
+    await connectDB(mongoUri);
+    await bootstrapSystemConfig().catch((err) => {
+      console.warn('Bootstrap note:', err.message);
+    });
+  } catch (err) {
+    console.error('Database connection error:', err);
+    return res.status(500).json({
+      success: false,
+      message: `Database connection failed: ${err.message}. Please check MongoDB Atlas connection string and Network Access (whitelist 0.0.0.0/0).`,
+    });
+  }
+
+  if (!app) {
+    app = createApp();
+  }
+
   return app(req, res);
 }
-

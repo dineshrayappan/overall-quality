@@ -25,9 +25,16 @@ export function createApp() {
   const app = express();
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  const allowedOrigins = env.clientOrigin.split(',').map((o) => o.trim());
   app.use(
     cors({
-      origin: env.clientOrigin.split(',').map((o) => o.trim()),
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+        return callback(new Error(`Origin ${origin} not allowed by CORS`));
+      },
       credentials: true,
     })
   );

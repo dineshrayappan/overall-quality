@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Production build outputs
+client/dist/
+dist/
+.vite/
+client/.vite/
+client/.vite-temp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+client/.env
+server/.env
+!server/.env.example
+!client/.env.example
+
+# File uploads and test uploads
+uploads/
+server/uploads/*
+!server/uploads/inspections/demo
+server/uploads_test/
+uploads_test/
+
+# Database dumps / backups
+server/backups/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

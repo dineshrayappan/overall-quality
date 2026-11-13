@@ -8,6 +8,10 @@ import TargetChartPage from './pages/TargetChartPage.jsx';
 import SizeSetPage from './pages/SizeSetPage.jsx';
 import SevenPointPage from './pages/SevenPointPage.jsx';
 import MeasurementPage from './pages/MeasurementPage.jsx';
+import ShrinkagePage from './pages/ShrinkagePage.jsx';
+import FourPointPage from './pages/FourPointPage.jsx';
+import AccessoriesPage from './pages/AccessoriesPage.jsx';
+import SpecificationPage from './pages/SpecificationPage.jsx';
 import MasterDataPage from './pages/MasterDataPage.jsx';
 import ExcelExportPage from './pages/ExcelExportPage.jsx';
 import ConfigurationPage from './pages/ConfigurationPage.jsx';
@@ -118,6 +122,62 @@ function AppRoutes() {
           element={
             <ProtectedRoute section="measurement">
               <MeasurementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inspections/shrinkage"
+          element={
+            <ProtectedRoute section="shrinkage">
+              <ShrinkagePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inspections/shrinkage/:id"
+          element={
+            <ProtectedRoute section="shrinkage">
+              <ShrinkagePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inspections/four-point"
+          element={
+            <ProtectedRoute section="fourPoint">
+              <FourPointPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inspections/four-point/:id"
+          element={
+            <ProtectedRoute section="fourPoint">
+              <FourPointPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inspections/accessories"
+          element={
+            <ProtectedRoute section="accessories">
+              <AccessoriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inspections/accessories/:id"
+          element={
+            <ProtectedRoute section="accessories">
+              <AccessoriesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/specifications"
+          element={
+            <ProtectedRoute section="specifications">
+              <SpecificationPage />
             </ProtectedRoute>
           }
         />

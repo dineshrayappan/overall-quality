@@ -3,6 +3,9 @@ import { TargetChart } from '../models/inspections/TargetChart.js';
 import { SizeSetInspection } from '../models/inspections/SizeSetInspection.js';
 import { SevenPointInspection } from '../models/inspections/SevenPointInspection.js';
 import { MeasurementInspection } from '../models/inspections/MeasurementInspection.js';
+import { ShrinkageInspection } from '../models/inspections/ShrinkageInspection.js';
+import { FourPointInspection } from '../models/inspections/FourPointInspection.js';
+import { AccessoriesInspection } from '../models/inspections/AccessoriesInspection.js';
 import { authenticate } from '../middleware/auth.js';
 import { assertRecordAccess, requirePermission } from '../middleware/rbac.js';
 import { generateInspectionPdfBuffer } from '../services/pdfService.js';
@@ -26,6 +29,10 @@ const MODULE_MAP = {
   'seven-points': { model: SevenPointInspection, moduleKey: 'sevenPoint', type: 'seven_point' },
   measurement: { model: MeasurementInspection, moduleKey: 'measurement' },
   measurements: { model: MeasurementInspection, moduleKey: 'measurement', type: 'measurement' },
+  shrinkage: { model: ShrinkageInspection, moduleKey: 'shrinkage', type: 'shrinkage' },
+  'four-point': { model: FourPointInspection, moduleKey: 'fourPoint', type: 'four_point' },
+  four_point: { model: FourPointInspection, moduleKey: 'fourPoint', type: 'four_point' },
+  accessories: { model: AccessoriesInspection, moduleKey: 'accessories', type: 'accessories' },
 };
 
 async function loadScopedReport(req, moduleParam, id) {

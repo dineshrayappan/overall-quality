@@ -50,4 +50,19 @@ export function createApp() {
   app.use('/api/inspections/seven-points', sevenPointRoutes);
   app.use('/api/inspections/measurements', measurementRoutes);
   app.use('/api/inspections/shrinkage', shrinkageRoutes);
-  app.use('/api/inspections/four
+  app.use('/api/inspections/four-point', fourPointRoutes);
+  app.use('/api/inspections/accessories', accessoriesRoutes);
+  app.use('/api/specifications', specificationRoutes);
+  app.use('/api/attachments', attachmentRoutes);
+  app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/exports', exportRoutes);
+  app.use('/api/audit-logs', auditRoutes);
+
+  app.use((_req, res) => {
+    res.status(404).json({ success: false, message: 'API endpoint not found.' });
+  });
+
+  app.use(errorHandler);
+  return app;
+}
+

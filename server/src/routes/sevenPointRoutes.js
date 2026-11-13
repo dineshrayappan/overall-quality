@@ -22,17 +22,15 @@ export default createInspectionLifecycleRouter({
     { path: 'styleId', select: 'code styleNumber name' },
     { path: 'productionLineId', select: 'code name' },
   ],
-  buildPayload: async ({ req, config }) => {
-    const {
-      sNo = '',
-      qcName = '',
-      orderId,
-      inspectionDate,
-      productionLineId = null,
-      entries = [],
-      remarks = '',
-      overrideReason = '',
-    } = req.body;
+  buildPayload: async ({ req, config, existing }) => {
+    const orderId = req.body.orderId || existing?.orderId?._id || existing?.orderId;
+    const productionLineId = req.body.productionLineId !== undefined ? req.body.productionLineId : (existing?.productionLineId?._id || existing?.productionLineId || null);
+    const inspectionDate = req.body.inspectionDate || existing?.inspectionDate;
+    const entries = req.body.entries || existing?.entries || [];
+    const remarks = req.body.remarks !== undefined ? req.body.remarks : (existing?.remarks || '');
+    const sNo = req.body.sNo || existing?.sNo || '';
+    const qcName = req.body.qcName || existing?.qcName || '';
+    const overrideReason = req.body.overrideReason !== undefined ? req.body.overrideReason : (existing?.overrideReason || '');
 
     if (!orderId) throw new AppError('Order selection is required.', 400);
     const validDate = new Date(inspectionDate);

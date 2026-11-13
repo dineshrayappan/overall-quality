@@ -85,10 +85,15 @@ export default function DashboardPage() {
   const charts = data?.charts || {};
 
   const routeForModule = (mod, id) => {
-    if (mod === 'Target Chart') return `/inspections/target-charts/${id}`;
-    if (mod === 'Size Set / In-line') return `/inspections/size-sets/${id}`;
-    if (mod === '7 Point') return `/inspections/seven-points/${id}`;
-    return `/inspections/measurements/${id}`;
+    if (!mod) return '/';
+    if (mod.includes('Target Chart')) return `/inspections/target-charts/${id}`;
+    if (mod.includes('Size Set')) return `/inspections/size-sets/${id}`;
+    if (mod.includes('7 Point')) return `/inspections/seven-points/${id}`;
+    if (mod.includes('Measurement')) return `/inspections/measurements/${id}`;
+    if (mod.includes('Shrinkage')) return `/inspections/shrinkage/${id}`;
+    if (mod.includes('4-Point') || mod.includes('Four-Point')) return `/inspections/four-point/${id}`;
+    if (mod.includes('Accessories')) return `/inspections/accessories/${id}`;
+    return `/`;
   };
 
   return (
@@ -280,9 +285,44 @@ export default function DashboardPage() {
         <div className="kpi-card">
           <span className="kpi-label">Rejection Percentage</span>
           <span className="kpi-value" style={{ color: 'var(--danger)' }}>
-            {cards.rejectionPercentage ?? 0}%
+            {cards.overallRejectionPercentage ?? cards.rejectionPercentage ?? 0}%
           </span>
-          <span className="kpi-sub">Rejected pieces / hold rate</span>
+          <span className="kpi-sub">Overall rejection rate</span>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-label">Overall Acceptance %</span>
+          <span className="kpi-value" style={{ color: 'var(--success)' }}>
+            {cards.overallAcceptancePercentage ?? 0}%
+          </span>
+          <span className="kpi-sub">Passing quality rate</span>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-label">Fabric Inspection Qty</span>
+          <span className="kpi-value" style={{ color: '#0284c7' }}>
+            {cards.fabricInspectionQuantity ?? 0} yds
+          </span>
+          <span className="kpi-sub">Total 4-Point yards checked</span>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-label">Shrinkage Tests</span>
+          <span className="kpi-value" style={{ color: '#6366f1' }}>
+            {cards.shrinkageTestQuantity ?? 0}
+          </span>
+          <span className="kpi-sub">Lab shrinkage reports</span>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-label">Accessories Checked</span>
+          <span className="kpi-value" style={{ color: '#8b5cf6' }}>
+            {cards.accessoriesInspectionQuantity ?? 0} pcs
+          </span>
+          <span className="kpi-sub">13-point trim inspections</span>
+        </div>
+        <div className="kpi-card">
+          <span className="kpi-label">Retest Rate</span>
+          <span className="kpi-value" style={{ color: cards.retestRate > 5 ? 'var(--danger)' : 'var(--info)' }}>
+            {cards.retestRate ?? 0}%
+          </span>
+          <span className="kpi-sub">{cards.retestedCount ?? 0} retested inspections</span>
         </div>
         <div className="kpi-card">
           <span className="kpi-label">Overall Quality Score</span>
@@ -503,6 +543,86 @@ export default function DashboardPage() {
               </div>
             )}
           </section>
+
+          <div className="grid-2">
+            {/* Buyer-Wise Quality Performance */}
+            <section className="card">
+              <h2 className="card-title" style={{ marginBottom: '0.75rem' }}>
+                10. Buyer-Wise Quality Performance
+              </h2>
+              {(data?.buyerPerformance || []).length === 0 ? (
+                <p className="muted">No buyer-wise inspection records yet.</p>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table" style={{ fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Buyer</th>
+                        <th>Total Tests</th>
+                        <th>Accepted</th>
+                        <th>Rejected</th>
+                        <th>Pass Rate %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data?.buyerPerformance || []).map((b) => (
+                        <tr key={b.buyerName}>
+                          <td><strong>{b.buyerName}</strong></td>
+                          <td>{b.total}</td>
+                          <td style={{ color: '#16a34a', fontWeight: 600 }}>{b.accepted}</td>
+                          <td style={{ color: '#dc2626', fontWeight: 600 }}>{b.rejected}</td>
+                          <td>
+                            <span className={`tag ${b.acceptanceRate >= 90 ? 'tag-success' : b.acceptanceRate >= 75 ? 'tag-warning' : 'tag-danger'}`}>
+                              {b.acceptanceRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* Supplier-Wise Quality Performance */}
+            <section className="card">
+              <h2 className="card-title" style={{ marginBottom: '0.75rem' }}>
+                11. Supplier-Wise Quality Performance
+              </h2>
+              {(data?.supplierPerformance || []).length === 0 ? (
+                <p className="muted">No supplier-wise inspection records yet.</p>
+              ) : (
+                <div className="table-responsive">
+                  <table className="table" style={{ fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr>
+                        <th>Supplier</th>
+                        <th>Total Tests</th>
+                        <th>Accepted</th>
+                        <th>Rejected</th>
+                        <th>Pass Rate %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(data?.supplierPerformance || []).map((s) => (
+                        <tr key={s.supplierName}>
+                          <td><strong>{s.supplierName}</strong></td>
+                          <td>{s.total}</td>
+                          <td style={{ color: '#16a34a', fontWeight: 600 }}>{s.accepted}</td>
+                          <td style={{ color: '#dc2626', fontWeight: 600 }}>{s.rejected}</td>
+                          <td>
+                            <span className={`tag ${s.acceptanceRate >= 90 ? 'tag-success' : s.acceptanceRate >= 75 ? 'tag-warning' : 'tag-danger'}`}>
+                              {s.acceptanceRate}%
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          </div>
 
           <section className="card">
             <h2 className="card-title" style={{ marginBottom: '0.75rem' }}>

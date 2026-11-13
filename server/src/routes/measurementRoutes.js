@@ -32,24 +32,22 @@ export default createInspectionLifecycleRouter({
     if (query.overallResult) f['summary.overallResult'] = query.overallResult;
     return f;
   },
-  buildPayload: async ({ req }) => {
-    const {
-      orderId = null,
-      buyerId,
-      styleId,
-      supplierId = null,
-      fabricId = null,
-      gsmId = null,
-      colourId = null,
-      productionLineId = null,
-      inspectionDate,
-      inspectionStage = 'In-line',
-      selectedSizes = [],
-      rows = [],
-      remarks = '',
-      specialComments = '',
-      attachmentIds = [],
-    } = req.body;
+  buildPayload: async ({ req, existing }) => {
+    const orderId = req.body.orderId !== undefined ? req.body.orderId : (existing?.orderId?._id || existing?.orderId || null);
+    const buyerId = req.body.buyerId || existing?.buyerId?._id || existing?.buyerId;
+    const styleId = req.body.styleId || existing?.styleId?._id || existing?.styleId;
+    const supplierId = req.body.supplierId !== undefined ? req.body.supplierId : (existing?.supplierId?._id || existing?.supplierId || null);
+    const fabricId = req.body.fabricId !== undefined ? req.body.fabricId : (existing?.fabricId?._id || existing?.fabricId || null);
+    const gsmId = req.body.gsmId !== undefined ? req.body.gsmId : (existing?.gsmId?._id || existing?.gsmId || null);
+    const colourId = req.body.colourId !== undefined ? req.body.colourId : (existing?.colourId?._id || existing?.colourId || null);
+    const productionLineId = req.body.productionLineId !== undefined ? req.body.productionLineId : (existing?.productionLineId?._id || existing?.productionLineId || null);
+    const inspectionDate = req.body.inspectionDate || existing?.inspectionDate;
+    const inspectionStage = req.body.inspectionStage || existing?.inspectionStage || 'In-line';
+    const selectedSizes = req.body.selectedSizes || (existing ? (existing.toObject ? existing.toObject().selectedSizes : existing.selectedSizes) : []);
+    const rows = Array.isArray(req.body.rows) ? req.body.rows : (existing ? (existing.toObject ? existing.toObject().rows : existing.rows) : []);
+    const remarks = req.body.remarks !== undefined ? req.body.remarks : (existing?.remarks || '');
+    const specialComments = req.body.specialComments !== undefined ? req.body.specialComments : (existing?.specialComments || '');
+    const attachmentIds = req.body.attachmentIds || existing?.attachmentIds || [];
 
     const validDate = new Date(inspectionDate);
     if (!inspectionDate || Number.isNaN(validDate.getTime())) {

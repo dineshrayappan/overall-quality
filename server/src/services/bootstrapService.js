@@ -271,4 +271,103 @@ export const DEFAULT_INSPECTION_CONFIGS = [
   },
   {
     module: 'shrinkage',
-    config:
+    config: {
+      allowedShrinkage: { min: -5, max: 2 },
+      gsmTolerancePercent: 5,
+      colourFastness: {
+        changeInShadeMin: 4,
+        stainingOnCottonMin: 3,
+        crockingFabricWetMin: 3,
+        crockingFabricDryMin: 4,
+        crockingArtworkMin: 4,
+      },
+      attachmentMinNewton: 70,
+      spiralityMaxPercent: 4,
+      approvalWorkflow: [
+        { stage: 'IC LAB', required: true, allowedRoles: ['QC Inspector', 'Admin', 'Quality Manager'] },
+        { stage: 'IC QAD', required: true, allowedRoles: ['Quality Manager', 'Supervisor', 'Admin'] },
+        { stage: 'Received By', required: false, allowedRoles: ['Quality Manager', 'Admin'] },
+      ],
+      enforceSequentialApproval: false,
+    },
+  },
+  {
+    module: 'four_point',
+    config: {
+      rollMaxPointsPer100SqYds: 28,
+      batchMaxPointsPer100SqYds: 20,
+      scoring: { upTo3Inches: 1, from3To6Inches: 2, from6To9Inches: 3, over9Inches: 4 },
+      approvalWorkflow: [
+        { stage: 'Inspector', required: true, allowedRoles: ['QC Inspector', 'Admin', 'Quality Manager'] },
+        { stage: 'Checker', required: true, allowedRoles: ['Supervisor', 'Admin', 'Quality Manager'] },
+        { stage: 'Lab IC', required: false, allowedRoles: ['Quality Manager', 'Admin'] },
+      ],
+      enforceSequentialApproval: false,
+    },
+  },
+  {
+    module: 'accessories',
+    config: {
+      standardParameters: [
+        { key: 'material', label: 'Material', isMandatory: true },
+        { key: 'colour_matching', label: 'Colour matching', isMandatory: true },
+        { key: 'content_text', label: 'Content / Text', isMandatory: true },
+        { key: 'design', label: 'Design', isMandatory: true },
+        { key: 'position_design', label: 'Position of design', isMandatory: false },
+        { key: 'size_material', label: 'Size of material', isMandatory: true },
+        { key: 'uniformity', label: 'Uniformity', isMandatory: false },
+        { key: 'fibre_composition', label: 'Fibre composition details', isMandatory: true },
+        { key: 'wash_care_symbol', label: 'Wash care symbol marking', isMandatory: true },
+        { key: 'weight_material', label: 'Weight of material (GSM or thickness)', isMandatory: false },
+        { key: 'breaking_strength', label: 'Breaking strength (if hanger)', isMandatory: false },
+        { key: 'physical_testing', label: 'Physical testing, if any', isMandatory: false },
+        { key: 'lab_testing', label: 'Lab testing, if required', isMandatory: false },
+      ],
+      approvalWorkflow: [
+        { stage: 'Inspected by', required: true, allowedRoles: ['QC Inspector', 'Admin', 'Quality Manager'] },
+        { stage: 'Verified by', required: true, allowedRoles: ['Supervisor', 'Admin', 'Quality Manager'] },
+        { stage: 'Approved by', required: false, allowedRoles: ['Quality Manager', 'Admin'] },
+      ],
+      enforceSequentialApproval: false,
+    },
+  },
+];
+
+export async function bootstrapSystemConfig() {
+  for (const role of DEFAULT_ROLE_PERMISSIONS) {
+    await RolePermission.updateOne(
+      { roleName: role.roleName },
+      {
+        $set: {
+          permissions: role.permissions,
+          description: role.description,
+          isSystem: role.isSystem,
+        },
+      },
+      { upsert: true }
+    );
+  }
+
+  await CompanySetting.updateOne(
+    { key: 'default' },
+    {
+      $setOnInsert: {
+        key: 'default',
+        companyName: 'Garment Quality Management System',
+        companyAddress: '',
+        companyPhone: '',
+        companyEmail: '',
+      },
+    },
+    { upsert: true }
+  );
+
+  for (const cfg of DEFAULT_INSPECTION_CONFIGS) {
+    await InspectionConfig.updateOne(
+      { module: cfg.module },
+      { $setOnInsert: cfg },
+      { upsert: true }
+    );
+  }
+}
+

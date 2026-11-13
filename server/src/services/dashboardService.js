@@ -355,4 +355,211 @@ export async function getDashboardAnalytics(req, queryParams = {}) {
         )
       : 0;
 
-  // 
+  // Trend aggregators (Daily, Weekly, Monthly)
+  const dailyMap = new Map();
+  const weeklyMap = new Map();
+  const monthlyMap = new Map();
+  const lineMap = new Map();
+  const stageMap = new Map();
+
+  function addBucket(map, key, label, item) {
+    if (!map.has(key)) {
+      map.set(key, { key, label, count: 0, scoreSum: 0, ok: 0, notOk: 0 });
+    }
+    const b = map.get(key);
+    b.count += 1;
+    b.scoreSum += item.qualityScore;
+    b.ok += item.okCount;
+    b.notOk += item.notOkCount;
+  }
+
+  for (const item of normalized) {
+    const d = item.date;
+    const dayKey = d.toISOString().slice(0, 10);
+    const weekKey = getIsoWeekKey(d);
+    const monthKey = d.toISOString().slice(0, 7);
+
+    addBucket(dailyMap, dayKey, dayKey, item);
+    addBucket(weeklyMap, weekKey, weekKey, item);
+    addBucket(monthlyMap, monthKey, monthKey, item);
+    addBucket(lineMap, item.lineName, item.lineName, item);
+    addBucket(stageMap, item.stage, item.stage, item);
+  }
+
+  const finalizeBuckets = (map, sortByKey = true) => {
+    const arr = Array.from(map.values()).map((b) => ({
+      name: b.label,
+      count: b.count,
+      qualityScore: b.count > 0 ? roundTo(b.scoreSum / b.count, 2) : 0,
+      okCount: b.ok,
+      notOkCount: b.notOk,
+    }));
+    return sortByKey ? arr.sort((a, b) => a.name.localeCompare(b.name)) : arr;
+  };
+
+  // Defect category breakdown
+  const defectCategoryMap = new Map();
+  for (const s of sizeSets) {
+    for (const sectionName of ['accessories', 'workmanship', 'labelling']) {
+      for (const item of s[sectionName] || []) {
+        if (item.status === 'Not OK') {
+          const cat = `${sectionName.toUpperCase()}: ${item.label}`;
+          defectCategoryMap.set(cat, (defectCategoryMap.get(cat) || 0) + 1);
+        }
+      }
+    }
+  }
+  if (total7pRework > 0) defectCategoryMap.set('7-Point Rework Pieces', total7pRework);
+  if (total7pRejected > 0) defectCategoryMap.set('7-Point Rejected Pieces', total7pRejected);
+  if (total7pOil > 0) defectCategoryMap.set('7-Point Oil Defects', total7pOil);
+
+  for (const fp of fourPoints) {
+    for (const roll of fp.rolls || []) {
+      const d = roll.defects || {};
+      for (const [k, count] of Object.entries(d)) {
+        if (Number(count) > 0) {
+          const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+          defectCategoryMap.set(`Fabric: ${label}`, (defectCategoryMap.get(`Fabric: ${label}`) || 0) + Number(count));
+        }
+      }
+    }
+  }
+
+  for (const sh of shrinkages) {
+    for (const failParam of sh.summaryResults?.failedParameters || []) {
+      defectCategoryMap.set(`Shrinkage: ${failParam}`, (defectCategoryMap.get(`Shrinkage: ${failParam}`) || 0) + 1);
+    }
+  }
+
+  for (const acc of accessories) {
+    for (const failParam of acc.calculations?.failedParameters || []) {
+      defectCategoryMap.set(`Accessory: ${failParam}`, (defectCategoryMap.get(`Accessory: ${failParam}`) || 0) + 1);
+    }
+  }
+
+  const failedMeasurementCount = measurements.reduce(
+    (sum, m) => sum + Number(m.summary?.failedPoints || 0),
+    0
+  );
+  if (failedMeasurementCount > 0) {
+    defectCategoryMap.set('Measurement Out-of-Tolerance', failedMeasurementCount);
+  }
+
+  const defectCategoryAnalysis = Array.from(defectCategoryMap.entries())
+    .map(([category, count]) => ({ category, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12);
+
+  // Rework & Rejection analysis by date (from 7 Point)
+  const reworkByDateMap = new Map();
+  for (const r of sevenPoints) {
+    const dayKey = new Date(r.inspectionDate).toISOString().slice(0, 10);
+    if (!reworkByDateMap.has(dayKey)) {
+      reworkByDateMap.set(dayKey, { date: dayKey, checked: 0, rework: 0, rejected: 0, oil: 0 });
+    }
+    const b = reworkByDateMap.get(dayKey);
+    b.checked += Number(r.totals?.totalPiecesChecked || 0);
+    b.rework += Number(r.totals?.reworkPieces || 0);
+    b.rejected += Number(r.totals?.rejectedPieces || 0);
+    b.oil += Number(r.totals?.oilDefectCount || 0);
+  }
+  const reworkAndRejectionAnalysis = Array.from(reworkByDateMap.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((b) => ({
+      date: b.date,
+      checked: b.checked,
+      reworkPieces: b.rework,
+      rejectedPieces: b.rejected,
+      oilDefects: b.oil,
+      reworkPercentage: b.checked > 0 ? roundTo((b.rework / b.checked) * 100, 2) : 0,
+      rejectionPercentage: b.checked > 0 ? roundTo((b.rejected / b.checked) * 100, 2) : 0,
+      oilPercentage: b.checked > 0 ? roundTo((b.oil / b.checked) * 100, 2) : 0,
+    }));
+
+  // Employee / Process defect analysis (from 7 Point entries)
+  const empProcMap = new Map();
+  for (const sp of sevenPoints) {
+    for (const e of sp.entries || []) {
+      const key = `${e.employeeName} — ${e.processName}`;
+      if (!empProcMap.has(key)) {
+        empProcMap.set(key, {
+          label: key,
+          employeeName: e.employeeName,
+          employeeCode: e.employeeCode,
+          processName: e.processName,
+          piecesChecked: 0,
+          okPieces: 0,
+          reworkPieces: 0,
+          rejectedPieces: 0,
+          oilDefects: 0,
+        });
+      }
+      const b = empProcMap.get(key);
+      b.piecesChecked += Number(e.piecesChecked || 0);
+      b.okPieces += Number(e.okPieces || 0);
+      b.reworkPieces += Number(e.reworkPieces || 0);
+      b.rejectedPieces += Number(e.rejectedPieces || 0);
+      b.oilDefects += Number(e.oilDefectCount || 0);
+    }
+  }
+  const employeeProcessAnalysis = Array.from(empProcMap.values())
+    .map((b) => {
+      const defects = b.reworkPieces + b.rejectedPieces;
+      return {
+        ...b,
+        totalDefects: defects,
+        defectRate: b.piecesChecked > 0 ? roundTo((defects / b.piecesChecked) * 100, 2) : 0,
+      };
+    })
+    .sort((a, b) => b.totalDefects - a.totalDefects)
+    .slice(0, 15);
+
+  // Recent inspection history across modules
+  const recentInspections = [...normalized]
+    .sort((a, b) => b.date - a.date)
+    .slice(0, 12)
+    .map(({ raw, ...rest }) => rest);
+
+  return {
+    summaryCards: {
+      totalInspections,
+      completedInspections,
+      pendingInspections,
+      acceptedReports,
+      reworkReports,
+      holdReports,
+      overallAcceptancePercentage,
+      overallRejectionPercentage,
+      rejectionPercentage,
+      overallQualityScore,
+      fabricInspectionQuantity,
+      shrinkageTestQuantity,
+      accessoriesInspectionQuantity,
+      retestedCount,
+      retestRate,
+    },
+    buyerPerformance,
+    supplierPerformance,
+    charts: {
+      dailyTrend: finalizeBuckets(dailyMap),
+      weeklyTrend: finalizeBuckets(weeklyMap),
+      monthlyTrend: finalizeBuckets(monthlyMap),
+      linePerformance: finalizeBuckets(lineMap, false).sort((a, b) => b.count - a.count),
+      defectCategoryAnalysis,
+      okVsNotOk: [
+        { name: 'OK / Pass / Achieved', value: totalOkItemsAll },
+        { name: 'Not OK / Fail / Pending', value: totalNotOkItemsAll },
+      ],
+      okVsNotOkSummary: {
+        okTotal: totalOkItemsAll,
+        notOkTotal: totalNotOkItemsAll,
+        okRate: totalEvaluatedUnits > 0 ? roundTo((totalOkItemsAll / totalEvaluatedUnits) * 100, 2) : 0,
+      },
+      reworkAndRejectionAnalysis,
+      stageComparison: finalizeBuckets(stageMap, false),
+      employeeProcessAnalysis,
+    },
+    recentInspections,
+  };
+}
+

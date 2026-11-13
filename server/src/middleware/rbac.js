@@ -22,6 +22,10 @@ export function buildScopeFilter(req, moduleKey) {
   if (req.user.role === 'Admin' || req.permissions?.[moduleKey]?.scopeAllLines) {
     return {};
   }
+  // For textile lab & fabric modules that do not use production lines
+  if (['shrinkage', 'fourPoint', 'accessories', 'specifications'].includes(moduleKey)) {
+    return {};
+  }
   const assigned = (req.user.assignedLines || []).map((id) => id.toString());
   if (assigned.length === 0) {
     return { inspectorId: req.user._id };
@@ -38,13 +42,21 @@ export function assertRecordAccess(req, moduleKey, doc) {
   if (req.user.role === 'Admin' || req.permissions?.[moduleKey]?.scopeAllLines) {
     return;
   }
+  // For textile lab & fabric modules that do not use production lines
+  if (['shrinkage', 'fourPoint', 'accessories', 'specifications'].includes(moduleKey)) {
+    return;
+  }
   const isCreator =
     doc.inspectorId?.toString() === req.user._id.toString() ||
     doc.createdBy?.toString() === req.user._id.toString();
   const assigned = new Set((req.user.assignedLines || []).map((id) => id.toString()));
   const lineId = doc.productionLineId?._id?.toString() || doc.productionLineId?.toString();
 
-  if (!isCreator && !(lineId && assigned.has(lineId))) {
+  if (!lineId) {
+    return; // No production line attached to this document
+  }
+
+  if (!isCreator && !assigned.has(lineId)) {
     throw new AppError('You are not authorized to access this production line report.', 403);
   }
 }

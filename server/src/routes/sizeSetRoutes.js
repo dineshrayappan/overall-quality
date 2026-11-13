@@ -47,19 +47,17 @@ export default createInspectionLifecycleRouter({
     return f;
   },
   buildPayload: async ({ req, config, existing }) => {
-    const {
-      orderId,
-      inspectionStage,
-      inspectionDate,
-      productionLineId = null,
-      accessories,
-      workmanship,
-      labelling,
-      ppsTopStatus = '',
-      productionStatus = '',
-      finalDecision = 'Pending',
-      comments = '',
-    } = req.body;
+    const orderId = req.body.orderId || existing?.orderId?._id || existing?.orderId;
+    const inspectionStage = req.body.inspectionStage || existing?.inspectionStage || 'Size Set';
+    const inspectionDate = req.body.inspectionDate || existing?.inspectionDate;
+    const productionLineId = req.body.productionLineId !== undefined ? req.body.productionLineId : (existing?.productionLineId?._id || existing?.productionLineId || null);
+    const accessories = req.body.accessories || existing?.accessories;
+    const workmanship = req.body.workmanship || existing?.workmanship;
+    const labelling = req.body.labelling || existing?.labelling;
+    const ppsTopStatus = req.body.ppsTopStatus !== undefined ? req.body.ppsTopStatus : (existing?.ppsTopStatus || '');
+    const productionStatus = req.body.productionStatus !== undefined ? req.body.productionStatus : (existing?.productionStatus || '');
+    const finalDecision = req.body.finalDecision || existing?.finalDecision || 'Pending';
+    const comments = req.body.comments !== undefined ? req.body.comments : (existing?.comments || '');
 
     if (!orderId) throw new AppError('Order selection is required.', 400);
     if (!['Size Set', 'Pilot Run', 'In-line', 'Mid-line'].includes(inspectionStage)) {

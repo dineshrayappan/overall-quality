@@ -3,6 +3,9 @@ import { TargetChart } from '../models/inspections/TargetChart.js';
 import { SizeSetInspection } from '../models/inspections/SizeSetInspection.js';
 import { SevenPointInspection } from '../models/inspections/SevenPointInspection.js';
 import { MeasurementInspection } from '../models/inspections/MeasurementInspection.js';
+import { ShrinkageInspection } from '../models/inspections/ShrinkageInspection.js';
+import { FourPointInspection } from '../models/inspections/FourPointInspection.js';
+import { AccessoriesInspection } from '../models/inspections/AccessoriesInspection.js';
 import { buildScopeFilter } from '../middleware/rbac.js';
 import { roundTo } from './calculationService.js';
 
@@ -276,6 +279,196 @@ export async function generateIndividualExcelBuffer(inspectionType, doc) {
       ]);
     }
     autoSizeSheet(sheet);
+  } else if (inspectionType === 'shrinkage') {
+    const sheet = wb.addWorksheet('Shrinkage Test (QF-29)');
+    sheet.addRow([
+      'Report Number',
+      'Date',
+      'Order',
+      'Buyer',
+      'Fabric',
+      'Supplier',
+      'Colour',
+      'Req GSM',
+      'Section',
+      'Point',
+      'B.W.',
+      'A.W.',
+      '% Shrinkage',
+      'K.DIA',
+      'FID',
+      'Actual GSM',
+      'Spec',
+      'Result',
+    ]);
+    styleHeaderRow(sheet.getRow(1));
+    const h = doc.headerSnapshot || {};
+    for (const [sec, rows] of [
+      ['Garment', doc.garmentMeasurements || []],
+      ['Fabric', doc.fabricMeasurements || []],
+    ]) {
+      for (const r of rows) {
+        sheet.addRow([
+          doc.reportNumber,
+          formatDate(doc.inspectionDate),
+          h.orderNumber,
+          h.buyerName,
+          h.fabricName,
+          h.supplierName,
+          h.colourName,
+          h.requiredGsm,
+          sec,
+          r.point,
+          r.bw,
+          r.aw,
+          `${r.shrinkagePercent}%`,
+          r.kDia,
+          r.fid,
+          r.actualGsm,
+          r.spec,
+          r.result,
+        ]);
+      }
+    }
+    autoSizeSheet(sheet);
+
+    const sumSheet = wb.addWorksheet('Test Summary');
+    sumSheet.addRow(['Parameter', 'Status / Value']);
+    styleHeaderRow(sumSheet.getRow(1));
+    const sr = doc.summaryResults || {};
+    const cf = doc.colourFastness || {};
+    sumSheet.addRows([
+      ['Shrinkage Overall', sr.shrinkageResult],
+      ['GSM Deviation Result', sr.gsmResult],
+      ['Colour Fastness Result', sr.colourFastnessResult],
+      ['Spirality Result', sr.spiralityResult],
+      ['FINAL RESULT', sr.overallResult],
+      ['Approval Status', doc.approvalStatus],
+      ['Change in Shade (>=4)', `${cf.changeInShade?.value} (${cf.changeInShade?.result})`],
+      ['Staining on Cotton (>=3)', `${cf.stainingOnCotton?.value} (${cf.stainingOnCotton?.result})`],
+      ['Crocking Fabric Wet (>=3)', `${cf.crockingFabricWet?.value} (${cf.crockingFabricWet?.result})`],
+      ['Crocking Fabric Dry (>=4)', `${cf.crockingFabricDry?.value} (${cf.crockingFabricDry?.result})`],
+    ]);
+    autoSizeSheet(sumSheet);
+  } else if (inspectionType === 'four_point') {
+    const sheet = wb.addWorksheet('Roll Inspection (QF-30)');
+    sheet.addRow([
+      'Report Number',
+      'Date',
+      'Order',
+      'Buyer',
+      'Style',
+      'Fabric',
+      'Roll No',
+      'Rope No',
+      'Width (cm)',
+      'Dia (in)',
+      'GSM',
+      'Weight (kg)',
+      'Inspected Yds',
+      'Defects <=3"',
+      'Defects 3-6"',
+      'Defects 6-9"',
+      'Defects >9"',
+      'Total Points',
+      'Points / 100yd²',
+      'Result',
+      'Remarks',
+    ]);
+    styleHeaderRow(sheet.getRow(1));
+    const h = doc.headerSnapshot || {};
+    for (const r of doc.rolls || []) {
+      sheet.addRow([
+        doc.reportNumber,
+        formatDate(doc.inspectionDate),
+        h.orderNumber,
+        h.buyerName,
+        h.styleNumber,
+        h.fabricDescription,
+        r.rollNo,
+        r.ropeNo,
+        r.widthCm,
+        r.diaInches,
+        r.gsm,
+        r.rollWeight,
+        r.inspectedYards,
+        r.defectsUpTo3Inches,
+        r.defects3To6Inches,
+        r.defects6To9Inches,
+        r.defectsOver9Inches,
+        r.totalDefectPoints,
+        r.pointsPer100SqYds,
+        r.rollResult,
+        r.remarks,
+      ]);
+    }
+    autoSizeSheet(sheet);
+
+    const sumSheet = wb.addWorksheet('Batch Summary');
+    sumSheet.addRow(['Metric', 'Value']);
+    styleHeaderRow(sumSheet.getRow(1));
+    const b = doc.batchSummary || {};
+    sumSheet.addRows([
+      ['Total Inspected Rolls', b.totalRolls],
+      ['Total Inspected Yards', b.totalInspectedYards],
+      ['Accepted Rolls', b.totalAcceptedRolls],
+      ['Rejected Rolls', b.totalRejectedRolls],
+      ['Total Defect Points', b.totalDefectPoints],
+      ['Average Points / 100 Sq Yds', b.averagePointsPer100SqYds],
+      ['Final Batch Result', b.finalBatchResult],
+      ['Approval Status', doc.approvalStatus],
+    ]);
+    autoSizeSheet(sumSheet);
+  } else if (inspectionType === 'accessories') {
+    const sheet = wb.addWorksheet('Checklist (QAD-5)');
+    sheet.addRow([
+      'Report Number',
+      'Date',
+      'IN.OR.NO',
+      'Buyer',
+      'Style',
+      'Supplier',
+      'Accessory',
+      'S.No',
+      'Parameter',
+      'Mandatory',
+      'Status',
+      'Comments',
+    ]);
+    styleHeaderRow(sheet.getRow(1));
+    const h = doc.headerSnapshot || {};
+    (doc.checklist || []).forEach((c, idx) => {
+      sheet.addRow([
+        doc.reportNumber,
+        formatDate(doc.inspectionDate),
+        doc.inOrNo,
+        h.buyerName,
+        h.styleNumber,
+        h.supplierName,
+        h.accessoryDescription,
+        idx + 1,
+        c.label,
+        c.isMandatory ? 'Yes' : 'No',
+        c.status,
+        c.comments,
+      ]);
+    });
+    autoSizeSheet(sheet);
+
+    const sumSheet = wb.addWorksheet('Inspection Summary');
+    sumSheet.addRow(['Metric', 'Value']);
+    styleHeaderRow(sumSheet.getRow(1));
+    sumSheet.addRows([
+      ['Received Quantity', doc.receivedQuantity],
+      ['Inspected Quantity', doc.inspectedQuantity],
+      ['Inspection %', `${doc.inspectionPercentage}%`],
+      ['Accepted Quantity', doc.acceptedQuantity],
+      ['Rejected Quantity', doc.rejectedQuantity],
+      ['Failed Parameters Count', doc.calculations?.notOkCount ?? 0],
+      ['FINAL RESULT', doc.finalResult],
+      ['Approval Status', doc.approvalStatus],
+    ]);
+    autoSizeSheet(sumSheet);
   }
 
   return wb.xlsx.writeBuffer();
@@ -287,32 +480,51 @@ export async function generateReportExportExcelBuffer(req, queryParams = {}) {
   const canSizeSet = req.user.role === 'Admin' || req.permissions?.sizeSet?.view;
   const canSevenPoint = req.user.role === 'Admin' || req.permissions?.sevenPoint?.view;
   const canMeasurement = req.user.role === 'Admin' || req.permissions?.measurement?.view;
+  const canShrinkage = req.user.role === 'Admin' || req.permissions?.shrinkage?.view;
+  const canFourPoint = req.user.role === 'Admin' || req.permissions?.fourPoint?.view;
+  const canAccessories = req.user.role === 'Admin' || req.permissions?.accessories?.view;
 
   const hasOrderFilter = Boolean(queryParams.buyerId || queryParams.styleId || queryParams.orderId);
   const hasStageFilter = Boolean(queryParams.inspectionStage);
 
-  const [targetCharts, sizeSets, sevenPoints, measurements] = await Promise.all([
-    canTarget && !hasOrderFilter && !hasStageFilter
-      ? TargetChart.find(buildFilter(req, 'targetChart', queryParams, false))
-          .sort({ inspectionDate: -1 })
-          .lean()
-      : [],
-    canSizeSet
-      ? SizeSetInspection.find(buildFilter(req, 'sizeSet', queryParams, true))
-          .sort({ inspectionDate: -1 })
-          .lean()
-      : [],
-    canSevenPoint && !hasStageFilter
-      ? SevenPointInspection.find(buildFilter(req, 'sevenPoint', queryParams, true))
-          .sort({ inspectionDate: -1 })
-          .lean()
-      : [],
-    canMeasurement
-      ? MeasurementInspection.find(buildFilter(req, 'measurement', queryParams, true))
-          .sort({ inspectionDate: -1 })
-          .lean()
-      : [],
-  ]);
+  const [targetCharts, sizeSets, sevenPoints, measurements, shrinkages, fourPoints, accessories] =
+    await Promise.all([
+      canTarget && !hasOrderFilter && !hasStageFilter
+        ? TargetChart.find(buildFilter(req, 'targetChart', queryParams, false))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+      canSizeSet
+        ? SizeSetInspection.find(buildFilter(req, 'sizeSet', queryParams, true))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+      canSevenPoint && !hasStageFilter
+        ? SevenPointInspection.find(buildFilter(req, 'sevenPoint', queryParams, true))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+      canMeasurement
+        ? MeasurementInspection.find(buildFilter(req, 'measurement', queryParams, true))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+      canShrinkage
+        ? ShrinkageInspection.find(buildFilter(req, 'shrinkage', queryParams, true))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+      canFourPoint
+        ? FourPointInspection.find(buildFilter(req, 'fourPoint', queryParams, true))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+      canAccessories
+        ? AccessoriesInspection.find(buildFilter(req, 'accessories', queryParams, true))
+            .sort({ inspectionDate: -1 })
+            .lean()
+        : [],
+    ]);
 
   const combinedRows = [
     ...targetCharts.map((r) => ({
@@ -385,6 +597,60 @@ export async function generateReportExportExcelBuffer(req, queryParams = {}) {
       reworkPct: 0,
       rejectionPct: 0,
       decision: r.summary?.overallResult || '-',
+      approvalStatus: r.approvalStatus,
+    })),
+    ...shrinkages.map((r) => ({
+      reportNumber: r.reportNumber,
+      module: 'Shrinkage Test (QF-29)',
+      stage: 'Laboratory',
+      date: formatDate(r.inspectionDate),
+      buyer: r.headerSnapshot?.buyerName || '-',
+      style: r.headerSnapshot?.styleNumber || '-',
+      order: r.headerSnapshot?.orderNumber || '-',
+      line: 'Testing Lab',
+      inspector: r.inspectorName,
+      qualityPct: r.summaryResults?.overallResult === 'PASS' ? 100 : 0,
+      okCount: r.summaryResults?.overallResult === 'PASS' ? 1 : 0,
+      defectOrPending: r.summaryResults?.overallResult === 'FAIL' ? 1 : 0,
+      reworkPct: 0,
+      rejectionPct: r.summaryResults?.overallResult === 'FAIL' ? 100 : 0,
+      decision: r.summaryResults?.overallResult || 'PENDING',
+      approvalStatus: r.approvalStatus,
+    })),
+    ...fourPoints.map((r) => ({
+      reportNumber: r.reportNumber,
+      module: 'Fabric 4-Point (QF-30)',
+      stage: 'Fabric Inspection',
+      date: formatDate(r.inspectionDate),
+      buyer: r.headerSnapshot?.buyerName || '-',
+      style: r.headerSnapshot?.styleNumber || '-',
+      order: r.headerSnapshot?.orderNumber || '-',
+      line: 'Fabric QC',
+      inspector: r.inspectorName,
+      qualityPct: r.batchSummary?.finalBatchResult === 'PASS' ? 100 : 0,
+      okCount: r.batchSummary?.totalAcceptedRolls || 0,
+      defectOrPending: r.batchSummary?.totalRejectedRolls || 0,
+      reworkPct: 0,
+      rejectionPct: r.batchSummary?.totalRejectedRolls > 0 ? 100 : 0,
+      decision: r.batchSummary?.finalBatchResult || 'PASS',
+      approvalStatus: r.approvalStatus,
+    })),
+    ...accessories.map((r) => ({
+      reportNumber: r.reportNumber,
+      module: 'Accessories (QAD-5)',
+      stage: 'Trims Inspection',
+      date: formatDate(r.inspectionDate),
+      buyer: r.headerSnapshot?.buyerName || '-',
+      style: r.headerSnapshot?.styleNumber || '-',
+      order: r.headerSnapshot?.orderNumber || '-',
+      line: 'Accessories QC',
+      inspector: r.inspectorName,
+      qualityPct: r.finalResult === 'ACCEPT' ? 100 : 0,
+      okCount: r.calculations?.okCount || 0,
+      defectOrPending: r.calculations?.notOkCount || 0,
+      reworkPct: 0,
+      rejectionPct: r.finalResult === 'REJECT' ? 100 : 0,
+      decision: r.finalResult || 'ACCEPT',
       approvalStatus: r.approvalStatus,
     })),
   ].sort((a, b) => b.date.localeCompare(a.date));

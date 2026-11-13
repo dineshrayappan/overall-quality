@@ -354,3 +354,289 @@ export function calculateMeasurementRows(rawRows = []) {
   };
 }
 
+export function calculateShrinkageInspection(data = {}) {
+  const minShrinkage = Number(data.toleranceConfig?.minShrinkage ?? -5);
+  const maxShrinkage = Number(data.toleranceConfig?.maxShrinkage ?? 2);
+  const gsmTol = Number(data.toleranceConfig?.gsmTolerancePercent ?? 5);
+  const spiralityMax = Number(data.toleranceConfig?.spiralityMaxPercent ?? 4);
+  const attachmentMin = Number(data.toleranceConfig?.attachmentMinNewton ?? 70);
+
+  const processRow = (row) => {
+    const bw = Number(row.bw ?? 0);
+    const aw = Number(row.aw ?? 0);
+    const shrinkagePercent = bw > 0 ? roundTo(((bw - aw) / bw) * 100, 2) : 0;
+    const ok = shrinkagePercent >= minShrinkage && shrinkagePercent <= maxShrinkage;
+    const result = bw > 0 ? (ok ? 'OK' : 'NOT OK') : '-';
+    return {
+      point: String(row.point || '').trim(),
+      bw,
+      aw,
+      shrinkagePercent,
+      kDia: String(row.kDia || '').trim(),
+      fid: String(row.fid || '').trim(),
+      actualGsm: Number(row.actualGsm ?? 0),
+      spec: String(row.spec || `+${maxShrinkage}% ${minShrinkage}%`).trim(),
+      result,
+    };
+  };
+
+  const garmentMeasurements = (data.garmentMeasurements || []).map(processRow);
+  const fabricMeasurements = (data.fabricMeasurements || []).map(processRow);
+
+  const allRows = [...garmentMeasurements, ...fabricMeasurements];
+  const hasShrinkageFailure = allRows.some((r) => r.result === 'NOT OK');
+  const shrinkageEvaluated = allRows.some((r) => r.result === 'OK' || r.result === 'NOT OK');
+  const shrinkageResult = !shrinkageEvaluated ? 'Pending' : hasShrinkageFailure ? 'NOT OK' : 'OK';
+
+  // GSM
+  const reqGsm = Number(data.gsmTesting?.requiredGsm || data.headerSnapshot?.requiredGsm || 0);
+  const actGsm = Number(data.gsmTesting?.actualGsm ?? 0);
+  const gsmDev = roundTo(actGsm - reqGsm, 2);
+  const gsmDevPct = reqGsm > 0 ? roundTo((gsmDev / reqGsm) * 100, 2) : 0;
+  const gsmOk = reqGsm > 0 ? Math.abs(gsmDevPct) <= gsmTol : true;
+  const gsmResult = actGsm > 0 ? (gsmOk ? 'OK' : 'NOT OK') : 'Pending';
+
+  // Colour Fastness
+  const cf = data.colourFastness || {};
+  const evalCfField = (fld, defaultMin) => {
+    const val = Number(fld?.value ?? defaultMin);
+    const req = Number(fld?.requirement ?? defaultMin);
+    return {
+      value: val,
+      requirement: req,
+      result: val >= req ? 'OK' : 'NOT OK',
+    };
+  };
+
+  const changeInShade = evalCfField(cf.changeInShade, 4);
+  const stainingOnCotton = evalCfField(cf.stainingOnCotton, 3);
+  const crockingFabricWet = evalCfField(cf.crockingFabricWet, 3);
+  const crockingFabricDry = evalCfField(cf.crockingFabricDry, 4);
+  const crockingArtworkWet = evalCfField(cf.crockingArtworkWet, 4);
+  const crockingArtworkDry = evalCfField(cf.crockingArtworkDry, 4);
+
+  const cfOk =
+    changeInShade.result === 'OK' &&
+    stainingOnCotton.result === 'OK' &&
+    crockingFabricWet.result === 'OK' &&
+    crockingFabricDry.result === 'OK' &&
+    crockingArtworkWet.result === 'OK' &&
+    crockingArtworkDry.result === 'OK';
+
+  const colourFastnessResult = cfOk ? 'OK' : 'NOT OK';
+
+  // Attachment test
+  const tests = (data.processDetail?.attachmentTests || [
+    { testNumber: 1, valueNewton: 70 },
+    { testNumber: 2, valueNewton: 70 },
+    { testNumber: 3, valueNewton: 70 },
+  ]).map((t, i) => {
+    const v = Number(t.valueNewton ?? 70);
+    return {
+      testNumber: t.testNumber || i + 1,
+      valueNewton: v,
+      result: v >= attachmentMin ? 'OK' : 'NOT OK',
+    };
+  });
+  const attachmentOk = tests.every((t) => t.result === 'OK');
+  const attachmentResult = attachmentOk ? 'OK' : 'NOT OK';
+
+  // Spirality
+  const spiralityVal = Number(data.spirality?.spiralityPercent ?? 0);
+  const spiralityOk = Math.abs(spiralityVal) <= spiralityMax;
+  const spiralityResult = spiralityOk ? 'OK' : 'NOT OK';
+
+  // Summary
+  const failedParameters = [];
+  if (shrinkageResult === 'NOT OK') failedParameters.push('Shrinkage Measurement');
+  if (gsmResult === 'NOT OK') failedParameters.push('GSM Deviation');
+  if (colourFastnessResult === 'NOT OK') failedParameters.push('Colour Fastness');
+  if (attachmentResult === 'NOT OK') failedParameters.push('Attachment Strength');
+  if (spiralityResult === 'NOT OK') failedParameters.push('Spirality');
+
+  let overallResult = 'PENDING';
+  if (failedParameters.length > 0) {
+    overallResult = 'FAIL';
+  } else if (shrinkageResult === 'OK' && gsmResult === 'OK') {
+    overallResult = 'PASS';
+  }
+
+  return {
+    garmentMeasurements,
+    fabricMeasurements,
+    gsmTesting: {
+      requiredGsm: reqGsm,
+      actualGsm: actGsm,
+      deviation: gsmDev,
+      deviationPercent: gsmDevPct,
+      tolerancePercent: gsmTol,
+      result: gsmResult,
+    },
+    colourFastness: {
+      temperature: cf.temperature || '60°C',
+      changeInShade,
+      stainingOnCotton,
+      crockingFabricWet,
+      crockingFabricDry,
+      crockingArtworkWet,
+      crockingArtworkDry,
+      overallResult: colourFastnessResult,
+    },
+    processDetail: {
+      ...(data.processDetail || {}),
+      attachmentTests: tests,
+      attachmentRequirement: attachmentMin,
+      attachmentResult,
+    },
+    spirality: {
+      spiralityPercent: spiralityVal,
+      maxAllowedPercent: spiralityMax,
+      result: spiralityResult,
+    },
+    summaryResults: {
+      shrinkageResult,
+      gsmResult,
+      colourFastnessResult,
+      spiralityResult,
+      overallResult,
+      failedParameters,
+    },
+  };
+}
+
+export function calculateFourPointInspection(data = {}) {
+  const rollMax = Number(data.acceptanceCriteria?.rollMaxPointsPer100SqYds ?? 28);
+  const batchMax = Number(data.acceptanceCriteria?.batchMaxPointsPer100SqYds ?? 20);
+  const isTubular = data.isTubularFabric !== false;
+
+  let totalDefectPoints = 0;
+  let totalInspectedYards = 0;
+  let totalAcceptedRolls = 0;
+  let totalRejectedRolls = 0;
+
+  const rolls = (data.rolls || []).map((roll, idx) => {
+    const inspectedYards = Number(roll.inspectedYards || 100);
+    const diaInches = Number(roll.diaInches || roll.widthInches || 30);
+    const d1 = Number(roll.defectsUpTo3Inches || 0);
+    const d2 = Number(roll.defects3To6Inches || 0);
+    const d3 = Number(roll.defects6To9Inches || 0);
+    const d4 = Number(roll.defectsOver9Inches || 0);
+
+    const sizePoints = d1 * 1 + d2 * 2 + d3 * 3 + d4 * 4;
+
+    const defectsObj = roll.defects || {};
+    const catTotal = Object.values(defectsObj).reduce((acc, v) => acc + (Number(v) || 0), 0);
+
+    // If size points entered, use size points; if not but category defects entered, use category count
+    const rollPoints = sizePoints > 0 ? sizePoints : catTotal;
+
+    // 4 Point Formula: (Points * 3600) / (Width * Inspected Yards)
+    // If tubular, open width is Dia * 2
+    const openWidthInches = isTubular ? diaInches * 2 : diaInches;
+    const denominator = openWidthInches * inspectedYards;
+    const pointsPer100SqYds = denominator > 0 ? roundTo((rollPoints * 3600) / denominator, 2) : 0;
+
+    const rollResult = pointsPer100SqYds <= rollMax ? 'PASS' : 'FAIL';
+    if (rollResult === 'PASS') totalAcceptedRolls += 1;
+    else totalRejectedRolls += 1;
+
+    totalDefectPoints += rollPoints;
+    totalInspectedYards += inspectedYards;
+
+    return {
+      rollNo: String(roll.rollNo || `Roll-${idx + 1}`).trim(),
+      ropeNo: String(roll.ropeNo || '').trim(),
+      widthCm: Number(roll.widthCm || 0),
+      diaInches,
+      gsm: Number(roll.gsm || 0),
+      rollWeight: Number(roll.rollWeight || 0),
+      inspectedYards,
+      defectsUpTo3Inches: d1,
+      defects3To6Inches: d2,
+      defects6To9Inches: d3,
+      defectsOver9Inches: d4,
+      defects: defectsObj,
+      totalDefectPoints: rollPoints,
+      pointsPer100SqYds,
+      rollResult,
+      remarks: String(roll.remarks || '').trim(),
+    };
+  });
+
+  const avgPoints =
+    totalInspectedYards > 0
+      ? roundTo((totalDefectPoints * 3600) / (60 * totalInspectedYards), 2)
+      : rolls.length > 0
+      ? roundTo(rolls.reduce((sum, r) => sum + r.pointsPer100SqYds, 0) / rolls.length, 2)
+      : 0;
+
+  const finalBatchResult =
+    rolls.length > 0 && avgPoints <= batchMax && totalRejectedRolls === 0 ? 'PASS' : 'FAIL';
+
+  return {
+    rolls,
+    batchSummary: {
+      totalRolls: rolls.length,
+      totalInspectedYards,
+      totalAcceptedRolls,
+      totalRejectedRolls,
+      totalDefectPoints,
+      averagePointsPer100SqYds: avgPoints,
+      finalBatchResult,
+    },
+  };
+}
+
+export function calculateAccessoriesInspection(data = {}) {
+  const rcvQty = Number(data.receivedQuantity || 0);
+  const inspQty = Number(data.inspectedQuantity || 0);
+  const inspectionPercentage = rcvQty > 0 ? roundTo((inspQty / rcvQty) * 100, 2) : 0;
+
+  const checklist = (data.checklist || []).map((item) => ({
+    parameterKey: String(item.parameterKey || '').trim(),
+    label: String(item.label || '').trim(),
+    isMandatory: item.isMandatory !== false,
+    status: item.status || 'OK',
+    comments: String(item.comments || '').trim(),
+    attachmentIds: item.attachmentIds || [],
+  }));
+
+  let okCount = 0;
+  let notOkCount = 0;
+  let naCount = 0;
+  let pendingCount = 0;
+  const failedParameters = [];
+
+  for (const item of checklist) {
+    if (item.status === 'OK') okCount += 1;
+    else if (item.status === 'NOT OK') {
+      notOkCount += 1;
+      failedParameters.push(item.label || item.parameterKey);
+    } else if (item.status === 'NOT APPLICABLE' || item.status === 'N/A') naCount += 1;
+    else pendingCount += 1;
+  }
+
+  let finalResult = 'ACCEPT';
+  if (notOkCount > 0) finalResult = 'REJECT';
+  else if (pendingCount > 0 || checklist.length === 0) finalResult = 'HOLD';
+
+  const acceptedQuantity = finalResult === 'ACCEPT' ? rcvQty : 0;
+  const rejectedQuantity = finalResult === 'REJECT' ? rcvQty : 0;
+
+  return {
+    inspectionPercentage,
+    acceptedQuantity,
+    rejectedQuantity,
+    checklist,
+    calculations: {
+      totalParameters: checklist.length,
+      okCount,
+      notOkCount,
+      naCount,
+      failedParameters,
+    },
+    finalResult,
+  };
+}
+
+

@@ -25,8 +25,13 @@ export default createInspectionLifecycleRouter({
     if (query.shift) f.shift = query.shift;
     return f;
   },
-  buildPayload: async ({ req, config }) => {
-    const { productionLineId, inspectionDate, shift = 'General', indicators, remarks = '' } = req.body;
+  buildPayload: async ({ req, config, existing }) => {
+    const productionLineId = req.body.productionLineId || existing?.productionLineId?._id || existing?.productionLineId;
+    const inspectionDate = req.body.inspectionDate || existing?.inspectionDate;
+    const shift = req.body.shift !== undefined ? req.body.shift : (existing?.shift || 'General');
+    const indicators = req.body.indicators || existing?.indicators;
+    const remarks = req.body.remarks !== undefined ? req.body.remarks : (existing?.remarks || '');
+
     if (!productionLineId) throw new AppError('Production line is required.', 400);
 
     const line = await ProductionLine.findById(productionLineId).lean();

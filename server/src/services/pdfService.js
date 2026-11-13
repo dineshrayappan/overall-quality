@@ -640,6 +640,176 @@ export async function generateInspectionPdfBuffer(inspectionType, reportDoc) {
       ['SPECIAL COMMENTS', reportDoc.specialComments || '-'],
       ['SIGNATURES', `Q.C.: ${reportDoc.inspectorName || '-'}   |   IC.Q.A.D: ${reportDoc.approvalStatus}   |   SUPPLIER: ${h.supplierName || '-'}`],
     ]);
+  } else if (inspectionType === 'shrinkage') {
+    const h = reportDoc.headerSnapshot || {};
+    drawSectionBanner(doc, 'FABRIC / GARMENT SHRINKAGE TEST REPORT (FORM QF-29)');
+    drawKeyValueGrid(doc, [
+      ['R.No / Report No', reportDoc.reportNumber],
+      ['Date of Testing', formatDate(reportDoc.inspectionDate)],
+      ['OR.No / Order', h.orderNumber || '-'],
+      ['Customer / Buyer', h.buyerName || '-'],
+      ['Fabric', h.fabricName || '-'],
+      ['Supplier Name', h.supplierName || '-'],
+      ['Required GSM', h.requiredGsm || '-'],
+      ['Colour', h.colourName || '-'],
+      ['Allowed Shrinkage', h.allowedShrinkage || '+2% to -5%'],
+      ['Lot Number', h.lotNumber || '-'],
+      ['Sample ID', h.sampleIdentification || '-'],
+      ['Tested By', reportDoc.inspectorName || '-'],
+    ]);
+
+    const drawShrinkTable = (title, rows = []) => {
+      drawSectionBanner(doc, title);
+      const headers = ['POINT', 'B.W.', 'A.W.', '% SHRINK', 'K.DIA', 'FID', 'ACT GSM', 'SPEC', 'RESULT'];
+      const widths = [90, 48, 48, 62, 50, 50, 58, 70, 56];
+      const tableRows = rows.map((r) => [
+        r.point,
+        String(r.bw ?? 0),
+        String(r.aw ?? 0),
+        `${r.shrinkagePercent ?? 0}%`,
+        r.kDia || '-',
+        r.fid || '-',
+        String(r.actualGsm ?? '-'),
+        r.spec || '+2% -5%',
+        r.result || '-',
+      ]);
+      drawSimpleTable(doc, headers, tableRows, widths);
+    };
+
+    if (reportDoc.garmentMeasurements?.length > 0) {
+      drawShrinkTable('GARMENT MEASUREMENT SHRINKAGE', reportDoc.garmentMeasurements);
+    }
+    if (reportDoc.fabricMeasurements?.length > 0) {
+      drawShrinkTable('FABRIC MEASUREMENT SHRINKAGE', reportDoc.fabricMeasurements);
+    }
+
+    drawSectionBanner(doc, 'COLOUR FASTNESS & PROCESS DETAILS');
+    const cf = reportDoc.colourFastness || {};
+    const pd = reportDoc.processDetail || {};
+    const att = pd.attachmentTests || [];
+    const attStr = att.map((t) => `#${t.testNumber}: ${t.valueNewton}N (${t.result})`).join(', ');
+
+    drawKeyValueGrid(doc, [
+      ['Wash Temperature', cf.temperature || '60°C'],
+      ['Change in Shade (Min 4)', `${cf.changeInShade?.value ?? '-'} (${cf.changeInShade?.result || '-'})`],
+      ['Staining on Cotton (Min 3)', `${cf.stainingOnCotton?.value ?? '-'} (${cf.stainingOnCotton?.result || '-'})`],
+      ['Crocking Fabric Wet (Min 3)', `${cf.crockingFabricWet?.value ?? '-'} (${cf.crockingFabricWet?.result || '-'})`],
+      ['Crocking Fabric Dry (Min 4)', `${cf.crockingFabricDry?.value ?? '-'} (${cf.crockingFabricDry?.result || '-'})`],
+      ['Crocking Artwork (Min 4)', `Wet: ${cf.crockingArtworkWet?.value ?? '-'} | Dry: ${cf.crockingArtworkDry?.value ?? '-'}`],
+      ['Knitting / Dyeing / Compacting', `${pd.knitting || '-'} / ${pd.dyeing || '-'} / ${pd.compacting || '-'}`],
+      ['Bursting Strength', pd.fabricBurstingStrength || '-'],
+      ['Attachment Test (>=70N)', attStr || '-'],
+      ['Spirality %', `${reportDoc.spirality?.spiralityPercent ?? 0}% (${reportDoc.spirality?.result || 'OK'})`],
+    ]);
+
+    drawSectionBanner(doc, 'FINAL TEST EVALUATION & APPROVALS');
+    const sr = reportDoc.summaryResults || {};
+    drawKeyValueGrid(doc, [
+      ['Shrinkage Result', sr.shrinkageResult || '-'],
+      ['GSM Result', sr.gsmResult || '-'],
+      ['Colour Fastness Result', sr.colourFastnessResult || '-'],
+      ['Spirality Result', sr.spiralityResult || '-'],
+      ['OVERALL RESULT', sr.overallResult || 'PENDING'],
+      ['Remarks / Action', `${reportDoc.remarks || '-'} | Action: ${reportDoc.correctiveAction || '-'}`],
+      ['SIGNATURES', `IC LAB: ${reportDoc.icLabSignature || '-'}  |  IC QAD: ${reportDoc.icQadSignature || '-'}  |  Received By: ${reportDoc.receivedBySignature || '-'}`],
+    ]);
+  } else if (inspectionType === 'four_point') {
+    const h = reportDoc.headerSnapshot || {};
+    const crit = reportDoc.acceptanceCriteria || {};
+    drawSectionBanner(doc, 'FABRIC INSPECTION REPORT – DYED (FOUR POINT SYSTEM) (FORM QF-30)');
+    drawKeyValueGrid(doc, [
+      ['Inspection / Report No', reportDoc.reportNumber],
+      ['Inspection Date', formatDate(reportDoc.inspectionDate)],
+      ['Order Number', h.orderNumber || '-'],
+      ['Buyer', h.buyerName || '-'],
+      ['Style Number', h.styleNumber || '-'],
+      ['Fabric Description', h.fabricDescription || '-'],
+      ['Yarn Mill', h.yarnMill || '-'],
+      ['Knitting Name', h.knittingName || '-'],
+      ['Colour', h.colourName || '-'],
+      ['Count / Dia', h.countDia || '-'],
+      ['DC Number', h.dcNumber || '-'],
+      ['Total Weight', `${h.totalReceivedWeight || 0} kg`],
+      ['Roll Acceptance Limit', `<= ${crit.rollMaxPointsPer100SqYds ?? 28} pts/100 sq yds`],
+      ['Batch Acceptance Limit', `<= ${crit.batchMaxPointsPer100SqYds ?? 20} pts/100 sq yds`],
+    ]);
+
+    drawSectionBanner(doc, 'ROLL-WISE FOUR-POINT INSPECTION');
+    const headers = ['ROLL#', 'ROPE', 'WIDTH', 'DIA', 'GSM', 'WT(kg)', 'YDS', '<=3"', '3-6"', '6-9"', '>9"', 'PTS', 'PTS/100YD²', 'RESULT', 'REMARKS'];
+    const widths = [48, 38, 40, 32, 34, 38, 40, 30, 30, 30, 30, 36, 58, 44, 52];
+    const rollRows = (reportDoc.rolls || []).map((r) => [
+      r.rollNo,
+      r.ropeNo || '-',
+      String(r.widthCm || '-'),
+      String(r.diaInches || '-'),
+      String(r.gsm || '-'),
+      String(r.rollWeight || '-'),
+      String(r.inspectedYards || '-'),
+      String(r.defectsUpTo3Inches || 0),
+      String(r.defects3To6Inches || 0),
+      String(r.defects6To9Inches || 0),
+      String(r.defectsOver9Inches || 0),
+      String(r.totalDefectPoints || 0),
+      String(r.pointsPer100SqYds || 0),
+      r.rollResult || 'PASS',
+      r.remarks || '-',
+    ]);
+    drawSimpleTable(doc, headers, rollRows, widths);
+
+    const b = reportDoc.batchSummary || {};
+    drawSectionBanner(doc, 'BATCH SUMMARY & VERIFICATION');
+    drawKeyValueGrid(doc, [
+      ['Total Rolls Inspected', b.totalRolls ?? 0],
+      ['Total Inspected Yards', `${b.totalInspectedYards ?? 0} yards`],
+      ['Accepted / Rejected Rolls', `${b.totalAcceptedRolls ?? 0} / ${b.totalRejectedRolls ?? 0}`],
+      ['Total Defect Points', b.totalDefectPoints ?? 0],
+      ['Avg Points / 100 Sq Yds', b.averagePointsPer100SqYds ?? 0],
+      ['FINAL BATCH RESULT', b.finalBatchResult || 'PASS'],
+      ['Inspector Remarks', reportDoc.inspectorRemarks || '-'],
+      ['SIGNATURES', `Inspector: ${reportDoc.inspectorName || '-'}  |  Checker: ${reportDoc.checkerSignature || '-'}  |  Lab IC: ${reportDoc.labIcSignature || '-'}`],
+    ]);
+  } else if (inspectionType === 'accessories') {
+    const h = reportDoc.headerSnapshot || {};
+    drawSectionBanner(doc, 'INSPECTION REPORT – ACCESSORIES (FORM QAD-5)');
+    drawKeyValueGrid(doc, [
+      ['Inspection / Report No', reportDoc.reportNumber],
+      ['Date', formatDate(reportDoc.inspectionDate)],
+      ['IN.OR.NO', reportDoc.inOrNo || '-'],
+      ['Buyer', h.buyerName || '-'],
+      ['Style Number', h.styleNumber || '-'],
+      ['Supplier', h.supplierName || '-'],
+      ['Accessory Description', h.accessoryDescription || '-'],
+      ['PO Number', h.poNumber || '-'],
+      ['Received Date', formatDate(reportDoc.receivedDate)],
+      ['DC Number', h.dcNumber || '-'],
+      ['Received Qty', reportDoc.receivedQuantity ?? 0],
+      ['Inspected Qty', `${reportDoc.inspectedQuantity ?? 0} (${reportDoc.inspectionPercentage ?? 0}%)`],
+      ['Accepted / Rejected Qty', `${reportDoc.acceptedQuantity ?? 0} / ${reportDoc.rejectedQuantity ?? 0}`],
+      ['FINAL RESULT', reportDoc.finalResult || 'ACCEPT'],
+    ]);
+
+    drawSectionBanner(doc, '13-POINT QUALITY PARAMETERS CHECKLIST');
+    const headers = ['S.NO', 'INSPECTION PARAMETER', 'STATUS', 'MANDATORY', 'COMMENTS / OBSERVATIONS'];
+    const widths = [36, 210, 80, 70, 160];
+    const checklistRows = (reportDoc.checklist || []).map((c, i) => [
+      String(i + 1),
+      c.label || c.parameterKey,
+      c.status || 'OK',
+      c.isMandatory ? 'YES' : 'NO',
+      c.comments || '-',
+    ]);
+    drawSimpleTable(doc, headers, checklistRows, widths);
+
+    const calc = reportDoc.calculations || {};
+    drawSectionBanner(doc, 'CHECKLIST SUMMARY & APPROVALS');
+    drawKeyValueGrid(doc, [
+      ['Total Checked Parameters', calc.totalParameters ?? 13],
+      ['Passed / Failed / N/A', `OK: ${calc.okCount ?? 0} | NOT OK: ${calc.notOkCount ?? 0} | N/A: ${calc.naCount ?? 0}`],
+      ['Failed Parameters', (calc.failedParameters || []).join(', ') || 'None'],
+      ['Corrective Action', reportDoc.correctiveAction || '-'],
+      ['Remarks', reportDoc.remarks || '-'],
+      ['SIGNATURES', `Inspected: ${reportDoc.inspectedBy || '-'}  |  Verified: ${reportDoc.verifiedBy || '-'}  |  Approved: ${reportDoc.approvedBy || '-'}`],
+    ]);
   }
 
   await drawApprovalFooter(doc, inspectionType, reportDoc, history);

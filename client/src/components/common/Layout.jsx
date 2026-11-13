@@ -10,11 +10,16 @@ import {
   Database,
   Factory,
   FileSpreadsheet,
+  FlaskConical,
+  Grid,
   History,
   LogOut,
   Menu,
+  Package,
   Ruler,
   Settings,
+  Sliders,
+  Tag,
   Users,
   X,
 } from 'lucide-react';
@@ -41,6 +46,29 @@ export default function Layout() {
     if (drawerOpen && !dlg.open) dlg.showModal();
     else if (!drawerOpen && dlg.open) dlg.close();
   }, [drawerOpen]);
+
+  const textileQcItems = [
+    hasPerm('shrinkage', 'view') && {
+      to: '/inspections/shrinkage',
+      label: 'Shrinkage Test (QF-29)',
+      Icon: FlaskConical,
+    },
+    hasPerm('fourPoint', 'view') && {
+      to: '/inspections/four-point',
+      label: 'Fabric 4-Point (QF-30)',
+      Icon: Grid,
+    },
+    hasPerm('accessories', 'view') && {
+      to: '/inspections/accessories',
+      label: 'Accessories (QAD-5)',
+      Icon: Tag,
+    },
+    hasPerm('specifications', 'view') && {
+      to: '/specifications',
+      label: 'Quality Specifications',
+      Icon: Sliders,
+    },
+  ].filter(Boolean);
 
   const productionLineItems = [
     hasPerm('targetChart', 'view') && {
@@ -108,6 +136,25 @@ export default function Layout() {
                 <NavLink
                   to={to}
                   end={to === '/'}
+                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                >
+                  <Icon size={17} aria-hidden="true" />
+                  <span>{label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {textileQcItems.length > 0 && (
+        <div>
+          <div className="nav-section-label">Textile &amp; QA Formats</div>
+          <ul className="nav-list">
+            {textileQcItems.map(({ to, label, Icon }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
                   className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                 >
                   <Icon size={17} aria-hidden="true" />

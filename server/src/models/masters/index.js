@@ -342,4 +342,26 @@ export const MASTER_REGISTRY = {
   machines: {
     model: Machine,
     label: 'Machine Master',
-    searchField
+    searchFields: ['code', 'machineNumber', 'name', 'machineType'],
+    populates: [{ path: 'productionLineId', select: 'code name' }],
+  },
+  needles: {
+    model: Needle,
+    label: 'Needle Master',
+    searchFields: ['code', 'needleNumber', 'name', 'needleType', 'size'],
+    populates: [],
+  },
+  'measurement-specs': {
+    model: MeasurementSpec,
+    label: 'Measurement Specification Master',
+    searchFields: ['code', 'size', 'measurementPoint', 'measurementDescription'],
+    populates: [{ path: 'styleId', select: 'code styleNumber name' }],
+  },
+  'inspection-checkpoints': {
+    model: InspectionCheckpoint,
+    label: 'Inspection Checkpoint Master',
+    searchFields: ['code', 'module', 'section', 'name', 'description'],
+    populates: [],
+  },
+};
+
